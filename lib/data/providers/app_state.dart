@@ -274,9 +274,65 @@ class AppState extends ChangeNotifier {
     await refreshCurrentPeriod();
   }
 
+  Future<void> disburseSponsorship({
+    required int amountIqd,
+    required String disbursedAt,
+    String? notes,
+  }) async {
+    if (_selectedPeriod == null) throw StateError('لم يتم اختيار شهر');
+    await _db.disburseMonthSponsorship(
+      periodId: _selectedPeriod!.id,
+      disbursedAmountIqd: amountIqd,
+      disbursedAt: disbursedAt,
+      notes: notes,
+    );
+    _selectedPeriod = await _db.getOrCreatePeriod(_selectedPeriod!.yearMonth);
+    await refreshCurrentPeriod();
+  }
+
+  Future<void> unlockCurrentPeriod({String? reason}) async {
+    if (_selectedPeriod == null) throw StateError('لم يتم اختيار شهر');
+    await _db.unlockPeriod(
+      periodId: _selectedPeriod!.id,
+      reason: reason,
+    );
+    _selectedPeriod = await _db.getOrCreatePeriod(_selectedPeriod!.yearMonth);
+    await refreshCurrentPeriod();
+  }
+
   Future<void> updateDefaultTarget(int newTarget) async {
     await _db.updateDefaultTarget(newTarget);
     _settings = await _db.getSettings();
     notifyListeners();
+  }
+
+  Future<void> resetAllData() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _db.resetAllData();
+      _settings = await _db.getSettings();
+      _allPeriods = [];
+      _contributors = [];
+      _paymentStatuses = [];
+      _periodPayments = [];
+      _periodGifts = [];
+      _currentSummary = null;
+
+      final now = DateTime.now();
+      final currentYearMonth =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      _selectedPeriod = await _db.getOrCreatePeriod(currentYearMonth);
+      _allPeriods = await _db.getAllPeriods();
+      await _loadPeriodData();
+      await loadContributors();
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

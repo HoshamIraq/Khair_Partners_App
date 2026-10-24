@@ -30,15 +30,15 @@ class AboutScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: isDark
-                            ? [AppTheme.primaryGreen, const Color(0xFF065F46)]
-                            : [AppTheme.primaryGreen, AppTheme.primaryLight],
+                            ? [AppTheme.yinMnBlue, AppTheme.gunmetal]
+                            : [AppTheme.yinMnBlue, AppTheme.powderBlue],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.primaryGreen.withOpacity(0.35),
+                          color: AppTheme.yinMnBlue.withValues(alpha: 0.35),
                           blurRadius: 18,
                           offset: const Offset(0, 6),
                         ),
@@ -72,7 +72,7 @@ class AboutScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryGreen,
+                      color: AppTheme.yinMnBlue,
                     ),
                   ),
 
@@ -83,15 +83,19 @@ class AboutScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       color: isDark
-                          ? AppTheme.primaryGreen.withOpacity(0.2)
-                          : AppTheme.primaryGreen.withOpacity(0.08),
+                          ? AppTheme.yinMnBlue.withValues(alpha: 0.3)
+                          : AppTheme.lightCyan,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppTheme.powderBlue.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: const Text(
                       'إدارة مساهمات كفالة الأيتام',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: AppTheme.gunmetal,
                       ),
                     ),
                   ),
@@ -171,7 +175,7 @@ class AboutScreen extends StatelessWidget {
                             Icon(
                               Icons.business_rounded,
                               size: 18,
-                              color: isDark ? AppTheme.primaryLight : AppTheme.primaryGreen,
+                              color: isDark ? AppTheme.powderBlue : AppTheme.yinMnBlue,
                             ),
                             const SizedBox(width: 8),
                             const Text(

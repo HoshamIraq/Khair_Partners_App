@@ -38,6 +38,7 @@ class _ContributorsScreenState extends State<ContributorsScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFFEFF7FA),
         appBar: AppBar(
           title: const Text('المساهمون'),
           actions: [
@@ -73,18 +74,67 @@ class _ContributorsScreenState extends State<ContributorsScreen> {
                     onChanged: (val) => _onFilterChanged(),
                   ),
                   const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip('الكل', 'all'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('نشط', 'active'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('متوقف مؤقتاً', 'paused'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('مؤرشف', 'archived'),
-                      ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F9FB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFD6E4EB)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _statusFilter,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF3D5A80)),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'all',
+                            child: Row(
+                              children: [
+                                Icon(Icons.people_outline, size: 18, color: Color(0xFF3D5A80)),
+                                SizedBox(width: 8),
+                                Text('جميع المساهمين (الكل)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'active',
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF2A9D8F)),
+                                SizedBox(width: 8),
+                                Text('المساهمون النشطون فقط', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'paused',
+                            child: Row(
+                              children: [
+                                Icon(Icons.pause_circle_outline, size: 18, color: Color(0xFFEE6C4D)),
+                                SizedBox(width: 8),
+                                Text('المتوقفون مؤقتاً', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'archived',
+                            child: Row(
+                              children: [
+                                Icon(Icons.archive_outlined, size: 18, color: Colors.grey),
+                                SizedBox(width: 8),
+                                Text('المؤرشفون', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _statusFilter = val);
+                            _onFilterChanged();
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -115,29 +165,17 @@ class _ContributorsScreenState extends State<ContributorsScreen> {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: FloatingActionButton(
+          heroTag: null,
           onPressed: () => _showAddContributorDialog(context),
-          icon: const Icon(Icons.add),
-          label: const Text('مساهم جديد'),
+          backgroundColor: AppTheme.burntSienna,
+          foregroundColor: Colors.white,
+          elevation: 5,
+          shape: const CircleBorder(),
+          tooltip: 'إضافة مساهم جديد',
+          child: const Icon(Icons.add, size: 28),
         ),
       ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _statusFilter == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: AppTheme.primaryGreen,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.black87,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
-      onSelected: (val) {
-        setState(() => _statusFilter = value);
-        _onFilterChanged();
-      },
     );
   }
 
@@ -331,7 +369,7 @@ class _ContributorsScreenState extends State<ContributorsScreen> {
   void _showAddContributorDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final rateCtrl = TextEditingController(text: '25000');
+    final rateCtrl = TextEditingController(text: '25,000');
     final notesCtrl = TextEditingController();
     String type = 'person';
     DateTime startsOn = DateTime.now();
@@ -516,7 +554,7 @@ class _ContributorsScreenState extends State<ContributorsScreen> {
 
   void _showUpdateRateDialog(BuildContext context, Contributor c) {
     final rateCtrl = TextEditingController(
-      text: c.currentRateAmount != null ? c.currentRateAmount.toString() : '25000',
+      text: c.currentRateAmount != null ? CurrencyFormatter.formatForInput(c.currentRateAmount) : '25,000',
     );
     DateTime effectiveDate = DateTime.now();
 

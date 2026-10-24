@@ -44,6 +44,7 @@ class _PaymentStatusesScreenState extends State<PaymentStatusesScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFFEFF7FA),
         appBar: AppBar(
           title: Text('كشف حالات تسديد $periodTitle'),
         ),
@@ -73,30 +74,76 @@ class _PaymentStatusesScreenState extends State<PaymentStatusesScreen> {
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildChoiceChip('الكل (${widget.state.paymentStatuses.length})', 'all', Colors.black87),
-                        const SizedBox(width: 8),
-                        _buildChoiceChip(
-                          'مسدد بالكامل (${widget.state.paymentStatuses.where((s) => s.isPaid).length})',
-                          'paid',
-                          AppTheme.targetReachedColor,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildChoiceChip(
-                          'مسدد جزئياً (${widget.state.paymentStatuses.where((s) => s.isPartial).length})',
-                          'partial',
-                          AppTheme.secondaryGold,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildChoiceChip(
-                          'غير مسدد (${widget.state.paymentStatuses.where((s) => s.isUnpaid).length})',
-                          'unpaid',
-                          AppTheme.targetShortfallColor,
-                        ),
-                      ],
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _filter,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.yinMnBlue),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'all',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.people_outline, size: 20, color: AppTheme.yinMnBlue),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'جميع الحالات (${widget.state.paymentStatuses.length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'paid',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline, size: 20, color: AppTheme.targetReachedColor),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'مسدد بالكامل (${widget.state.paymentStatuses.where((s) => s.isPaid).length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.targetReachedColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'partial',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.timelapse, size: 20, color: AppTheme.secondaryGold),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'مسدد جزئياً (${widget.state.paymentStatuses.where((s) => s.isPartial).length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.secondaryGold),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'unpaid',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.cancel_outlined, size: 20, color: AppTheme.targetShortfallColor),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'غير مسدد (${widget.state.paymentStatuses.where((s) => s.isUnpaid).length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.targetShortfallColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setState(() => _filter = val);
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -129,23 +176,6 @@ class _PaymentStatusesScreenState extends State<PaymentStatusesScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildChoiceChip(String label, String value, Color activeColor) {
-    final isSelected = _filter == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: activeColor.withOpacity(0.18),
-      labelStyle: TextStyle(
-        color: isSelected ? activeColor : Colors.black87,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
-      side: BorderSide(
-        color: isSelected ? activeColor : Colors.grey.shade300,
-      ),
-      onSelected: (_) => setState(() => _filter = value),
     );
   }
 

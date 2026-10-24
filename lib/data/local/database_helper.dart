@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -11,7 +10,6 @@ import '../models/audit_log.dart';
 import '../models/contributor.dart';
 import '../models/contributor_payment_status.dart';
 import '../models/gift_disbursement.dart';
-import '../models/monthly_obligation.dart';
 import '../models/monthly_period.dart';
 import '../models/payment.dart';
 import '../models/period_summary.dart';
@@ -39,11 +37,30 @@ class DatabaseHelper {
       version: 1,
       onConfigure: _onConfigure,
       onCreate: _createDB,
+      onOpen: _onOpen,
     );
   }
 
   Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON;');
+  }
+
+  Future<void> _onOpen(Database db) async {
+    try {
+      await db.execute('ALTER TABLE monthly_periods ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE monthly_periods ADD COLUMN disbursed_amount_iqd INTEGER;');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE monthly_periods ADD COLUMN disbursed_at TEXT;');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE monthly_periods ADD COLUMN disbursement_notes TEXT;');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE settings ADD COLUMN has_seeded INTEGER NOT NULL DEFAULT 0;');
+    } catch (_) {}
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -624,6 +641,87 @@ class DatabaseHelper {
     });
   }
 
+  Future<void> disburseMonthSponsorship({
+    required String periodId,
+    required int disbursedAmountIqd,
+    required String disbursedAt,
+    String? notes,
+  }) async {
+    if (disbursedAmountIqd <= 0) {
+      throw ArgumentError('يجب أن يكون مبلغ الكفالة المدفوع أكبر من صفر');
+    }
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      final periodRes = await txn.query('monthly_periods', where: 'id = ?', whereArgs: [periodId]);
+      if (periodRes.isEmpty) throw StateError('فترة الشهر غير موجودة');
+      final oldPeriod = periodRes.first;
+
+      await txn.update(
+        'monthly_periods',
+        {
+          'is_locked': 1,
+          'disbursed_amount_iqd': disbursedAmountIqd,
+          'disbursed_at': disbursedAt,
+          'disbursement_notes': notes?.trim(),
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [periodId],
+      );
+
+      await txn.insert('audit_logs', {
+        'id': _uuid.v4(),
+        'entity_type': 'monthly_periods',
+        'entity_id': periodId,
+        'operation': 'LOCK_AND_DISBURSE',
+        'before_json': jsonEncode(oldPeriod),
+        'after_json': jsonEncode({
+          'is_locked': 1,
+          'disbursed_amount_iqd': disbursedAmountIqd,
+          'disbursed_at': disbursedAt,
+          'disbursement_notes': notes?.trim(),
+          'updated_at': now,
+        }),
+        'reason': notes ?? 'دفع الكفالة وقفل الشهر',
+        'created_at': now,
+      });
+    });
+  }
+
+  Future<void> unlockPeriod({required String periodId, String? reason}) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      final periodRes = await txn.query('monthly_periods', where: 'id = ?', whereArgs: [periodId]);
+      if (periodRes.isEmpty) throw StateError('فترة الشهر غير موجودة');
+      final oldPeriod = periodRes.first;
+
+      await txn.update(
+        'monthly_periods',
+        {
+          'is_locked': 0,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [periodId],
+      );
+
+      await txn.insert('audit_logs', {
+        'id': _uuid.v4(),
+        'entity_type': 'monthly_periods',
+        'entity_id': periodId,
+        'operation': 'UNLOCK',
+        'before_json': jsonEncode(oldPeriod),
+        'after_json': jsonEncode({'is_locked': 0, 'updated_at': now}),
+        'reason': reason ?? 'إلغاء قفل الشهر',
+        'created_at': now,
+      });
+    });
+  }
+
   Future<List<MonthlyPeriod>> getAllPeriods() async {
     final db = await database;
     final res = await db.query('monthly_periods', orderBy: 'year_month DESC');
@@ -654,9 +752,13 @@ class DatabaseHelper {
     final now = DateTime.now().toIso8601String();
 
     await db.transaction((txn) async {
-      // 1. Verify period exists
+      // 1. Verify period exists and is not locked
       final periodRes = await txn.query('monthly_periods', where: 'id = ?', whereArgs: [periodId]);
       if (periodRes.isEmpty) throw StateError('فترة الشهر غير موجودة');
+      final isLocked = (periodRes.first['is_locked'] as num?)?.toInt() == 1;
+      if (isLocked) {
+        throw StateError('هذا الشهر مقفل وتم دفع كفالته مسبقاً، ولا يمكن تسجيل دفعات جديدة إليه');
+      }
 
       // 2. Ensure contributor has obligation in this period; if not, create obligation record
       final obRes = await txn.query(
@@ -1080,10 +1182,22 @@ class DatabaseHelper {
   // Seed sample data as documented in PRD section 5.1 & 5.2
   Future<void> seedSampleDataIfEmpty() async {
     final db = await database;
+    try {
+      final settingsRes = await db.query('settings', where: 'id = 1');
+      if (settingsRes.isNotEmpty && (settingsRes.first['has_seeded'] as int? ?? 0) == 1) {
+        return;
+      }
+    } catch (_) {}
+
     final count = Sqflite.firstIntValue(
       await db.rawQuery('SELECT COUNT(*) FROM contributors'),
     );
-    if (count != null && count > 0) return;
+    if (count != null && count > 0) {
+      try {
+        await db.update('settings', {'has_seeded': 1}, where: 'id = 1');
+      } catch (_) {}
+      return;
+    }
 
     // Example Month 9 (PRD Section 5.1):
     // هشام: 20,000 إلكتروني
@@ -1091,71 +1205,203 @@ class DatabaseHelper {
     // المراقبة: 25,000 نقدي
     // الإدارية: 25,000 نقدي
     final now = DateTime.now();
-    final yearMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-    final period = await getOrCreatePeriod(yearMonth);
+    final year = now.year;
+    final ym09 = '$year-09';
+    final ym10 = '$year-10';
+
+    final period09 = await getOrCreatePeriod(ym09);
+    final period10 = await getOrCreatePeriod(ym10);
 
     final c1 = await addContributor(
       name: 'هشام',
       contributorType: 'person',
       phone: '07800000001',
-      startsOn: '$yearMonth-01',
+      startsOn: '$year-09-01',
       initialRateIqd: 20000,
     );
     final c2 = await addContributor(
       name: 'محمد نادر',
       contributorType: 'person',
       phone: '07800000002',
-      startsOn: '$yearMonth-01',
+      startsOn: '$year-09-01',
       initialRateIqd: 25000,
     );
     final c3 = await addContributor(
       name: 'المراقبة',
       contributorType: 'department',
-      startsOn: '$yearMonth-01',
+      startsOn: '$year-09-01',
       initialRateIqd: 25000,
     );
     final c4 = await addContributor(
       name: 'الإدارية',
       contributorType: 'department',
-      startsOn: '$yearMonth-01',
+      startsOn: '$year-09-01',
       initialRateIqd: 25000,
     );
 
-    // Refresh obligations
-    await _syncObligationsForPeriod(db, period);
+    // Refresh obligations for Month 9 and Month 10
+    await _syncObligationsForPeriod(db, period09);
+    await _syncObligationsForPeriod(db, period10);
 
-    // Insert payments
+    // Payments for Month 9 (PRD Section 5.1: Exactly 95,000 IQD)
     await submitPayment(
-      periodId: period.id,
+      periodId: period09.id,
       contributorId: c1,
       amountIqd: 20000,
       method: 'electronic',
-      paidAt: DateTime.now().toIso8601String(),
+      paidAt: '$year-09-05T10:00:00Z',
       notes: 'حوالة زين كاش',
     );
     await submitPayment(
-      periodId: period.id,
+      periodId: period09.id,
       contributorId: c2,
       amountIqd: 25000,
       method: 'electronic',
-      paidAt: DateTime.now().toIso8601String(),
+      paidAt: '$year-09-08T11:30:00Z',
       notes: 'تحويل إلكتروني',
     );
     await submitPayment(
-      periodId: period.id,
+      periodId: period09.id,
       contributorId: c3,
       amountIqd: 25000,
       method: 'cash',
-      paidAt: DateTime.now().toIso8601String(),
+      paidAt: '$year-09-10T09:15:00Z',
       notes: 'تسليم يدوي في الصندوق',
     );
     await submitPayment(
-      periodId: period.id,
+      periodId: period09.id,
       contributorId: c4,
       amountIqd: 25000,
       method: 'cash',
-      paidAt: DateTime.now().toIso8601String(),
+      paidAt: '$year-09-12T14:00:00Z',
       notes: 'تسليم نقدي',
     );
+
+    // Payments for Month 10
+    await submitPayment(
+      periodId: period10.id,
+      contributorId: c1,
+      amountIqd: 20000,
+      method: 'electronic',
+      paidAt: '$year-10-05T10:00:00Z',
+      notes: 'حوالة إلكترونية',
+    );
+    await submitPayment(
+      periodId: period10.id,
+      contributorId: c2,
+      amountIqd: 25000,
+      method: 'electronic',
+      paidAt: '$year-10-07T11:00:00Z',
+      notes: 'دفع إلكتروني',
+    );
+    await submitPayment(
+      periodId: period10.id,
+      contributorId: c3,
+      amountIqd: 25000,
+      method: 'cash',
+      paidAt: '$year-10-09T09:00:00Z',
+      notes: 'نقدي',
+    );
+    await submitPayment(
+      periodId: period10.id,
+      contributorId: c4,
+      amountIqd: 25000,
+      method: 'cash',
+      paidAt: '$year-10-11T12:00:00Z',
+      notes: 'نقدي',
+    );
+
+    try {
+      await db.update('settings', {'has_seeded': 1}, where: 'id = 1');
+    } catch (_) {}
+  }
+
+  // ==========================================
+  // RESET ALL DATA
+  // ==========================================
+  Future<void> resetAllData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('gift_disbursements');
+      await txn.delete('payments');
+      await txn.delete('monthly_obligations');
+      await txn.delete('monthly_periods');
+      await txn.delete('contribution_rates');
+      await txn.delete('contributors');
+      await txn.delete('audit_logs');
+
+      final now = DateTime.now().toIso8601String();
+      await txn.update(
+        'settings',
+        {
+          'default_target_iqd': 200000,
+          'has_seeded': 1,
+          'updated_at': now,
+        },
+        where: 'id = 1',
+      );
+
+      await txn.insert('audit_logs', {
+        'id': _uuid.v4(),
+        'entity_type': 'system',
+        'entity_id': 'all',
+        'operation': 'SYSTEM_RESET',
+        'before_json': null,
+        'after_json': jsonEncode({'status': 'reset_complete'}),
+        'reason': 'تصفير شامل لكافة البيانات والبدء من جديد',
+        'created_at': now,
+      });
+    });
+  }
+
+  // ==========================================
+  // EXPORT QUERIES
+  // ==========================================
+  Future<List<Map<String, dynamic>>> getContributorsForExport() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT c.*,
+        (
+          SELECT cr.amount_iqd FROM contribution_rates cr
+          WHERE cr.contributor_id = c.id
+          ORDER BY cr.effective_from DESC LIMIT 1
+        ) AS current_rate_iqd
+      FROM contributors c
+      ORDER BY c.name ASC
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> getPaymentsForExport() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT p.*, c.name AS contributor_name, mp.year_month
+      FROM payments p
+      JOIN contributors c ON p.contributor_id = c.id
+      JOIN monthly_periods mp ON p.period_id = mp.id
+      ORDER BY p.paid_at DESC
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> getPeriodsForExport() async {
+    final periods = await getAllPeriods();
+    final List<Map<String, dynamic>> list = [];
+    for (final period in periods) {
+      final summary = await getPeriodSummary(period.id);
+      list.add({
+        'period': period,
+        'summary': summary,
+      });
+    }
+    return list;
+  }
+
+  Future<List<Map<String, dynamic>>> getGiftsForExport() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT g.*, mp.year_month
+      FROM gift_disbursements g
+      JOIN monthly_periods mp ON g.period_id = mp.id
+      ORDER BY g.spent_at DESC
+    ''');
   }
 }

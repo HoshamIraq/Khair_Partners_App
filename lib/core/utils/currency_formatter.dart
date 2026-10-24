@@ -11,6 +11,17 @@ class CurrencyFormatter {
     return '$formatted د.ع';
   }
 
+  /// Formats plain number with thousand separators: e.g. 200,000
+  static String formatNumber(num number) {
+    return _latinFormat.format(number);
+  }
+
+  /// Formats integer amount for text field controllers: e.g. 200,000
+  static String formatForInput(int? amount) {
+    if (amount == null) return '';
+    return _latinFormat.format(amount);
+  }
+
   /// Parses text into an integer IQD amount, ignoring commas and spaces
   static int? parseIqd(String? text) {
     if (text == null || text.trim().isEmpty) return null;

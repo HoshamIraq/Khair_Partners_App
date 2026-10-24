@@ -126,7 +126,7 @@ class _ContributorHistoryScreenState extends State<ContributorHistoryScreen> {
 
                     const SizedBox(height: 20),
                     const Text(
-                      'التفصيل عبر الأشهر (وفق Section 13)',
+                      'التفصيل المالي عبر الأشهر',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),

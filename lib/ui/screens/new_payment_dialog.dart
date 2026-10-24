@@ -46,14 +46,14 @@ class _NewPaymentDialogState extends State<NewPaymentDialog> {
         );
 
     if (status != null && status.remainingIqd > 0) {
-      _amountController.text = status.remainingIqd.toString();
+      _amountController.text = CurrencyFormatter.formatForInput(status.remainingIqd);
     } else {
       final contributor = widget.state.contributors.cast<Contributor?>().firstWhere(
             (c) => c?.id == contributorId,
             orElse: () => null,
           );
       if (contributor?.currentRateAmount != null && contributor!.currentRateAmount! > 0) {
-        _amountController.text = contributor.currentRateAmount.toString();
+        _amountController.text = CurrencyFormatter.formatForInput(contributor.currentRateAmount);
       }
     }
   }
@@ -67,6 +67,15 @@ class _NewPaymentDialogState extends State<NewPaymentDialog> {
   }
 
   Future<void> _submit() async {
+    if (widget.state.selectedPeriod?.isLocked == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppTheme.burntSienna,
+          content: Text('هذا الشهر مقفل وتم دفع كفالته مسبقاً، ولا يمكن تسجيل دفعات جديدة إليه'),
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_selectedContributorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -166,6 +175,33 @@ class _NewPaymentDialogState extends State<NewPaymentDialog> {
                     ),
                   ],
                 ),
+                if (period?.isLocked == true) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF0EC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF8C8B8)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_rounded, color: AppTheme.burntSienna, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'هذا الشهر مقفل وتم دفع كفالته مسبقاً، ولا يمكن إضافة تسديدات جديدة إليه.',
+                            style: TextStyle(
+                              color: Color(0xFF8A301E),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
 
                 // Contributor Selector
@@ -277,7 +313,7 @@ class _NewPaymentDialogState extends State<NewPaymentDialog> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: _selectedMethod == 'electronic'
-                                ? AppTheme.electronicColor.withOpacity(0.12)
+                                ? AppTheme.electronicColor.withValues(alpha: 0.12)
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
@@ -319,7 +355,7 @@ class _NewPaymentDialogState extends State<NewPaymentDialog> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: _selectedMethod == 'cash'
-                                ? AppTheme.cashColor.withOpacity(0.12)
+                                ? AppTheme.cashColor.withValues(alpha: 0.12)
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(

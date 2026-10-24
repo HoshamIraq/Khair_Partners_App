@@ -22,6 +22,7 @@ class GiftsScreen extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFFEFF7FA),
         appBar: AppBar(
           title: Text('سجل هدايا ومساعدات $periodTitle'),
         ),
@@ -34,15 +35,15 @@ class GiftsScreen extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFB45309), Color(0xFFD97706)],
+                    colors: [Color(0xFF8A301E), AppTheme.burntSienna],
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.secondaryGold.withOpacity(0.3),
-                      blurRadius: 10,
+                      color: AppTheme.burntSienna.withValues(alpha: 0.35),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],

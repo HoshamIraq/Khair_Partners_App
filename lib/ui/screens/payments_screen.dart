@@ -37,76 +37,85 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           title: Text('مدفوعات $periodTitle'),
           actions: [
             IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'إضافة دفعة',
-              onPressed: () => _openNewPaymentDialog(context),
+              icon: Icon(period?.isLocked == true ? Icons.lock_outline : Icons.add),
+              tooltip: period?.isLocked == true ? 'الشهر مقفل' : 'إضافة دفعة',
+              onPressed: () {
+                if (period?.isLocked == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: AppTheme.burntSienna,
+                      content: Text('هذا الشهر مقفل وتم دفع كفالته مسبقاً، ولا يمكن إضافة دفعات جديدة إليه'),
+                    ),
+                  );
+                } else {
+                  _openNewPaymentDialog(context);
+                }
+              },
             ),
           ],
         ),
+        backgroundColor: const Color(0xFFEFF7FA),
         body: Column(
           children: [
-            // Filter Bar
+            // Filter Bar with Dropdowns
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Column(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
                 children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        const Text('الطريقة: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ChoiceChip(
-                          label: const Text('الكل'),
-                          selected: _methodFilter == 'all',
-                          onSelected: (_) => setState(() => _methodFilter = 'all'),
+                  // Payment Method Select
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F9FB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFD6E4EB)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _methodFilter,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF3D5A80)),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('جميع الطرق', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'cash', child: Text('نقدي فقط', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'electronic', child: Text('إلكتروني فقط', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setState(() => _methodFilter = val);
+                          },
                         ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('نقدي'),
-                          selected: _methodFilter == 'cash',
-                          selectedColor: AppTheme.cashColor,
-                          labelStyle: TextStyle(
-                            color: _methodFilter == 'cash' ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          onSelected: (_) => setState(() => _methodFilter = 'cash'),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Payment Status Select
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F9FB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFD6E4EB)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _statusFilter,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF3D5A80)),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('جميع الحالات', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'active', child: Text('نشطة فقط', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'void', child: Text('ملغاة فقط', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setState(() => _statusFilter = val);
+                          },
                         ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('إلكتروني'),
-                          selected: _methodFilter == 'electronic',
-                          selectedColor: AppTheme.electronicColor,
-                          labelStyle: TextStyle(
-                            color: _methodFilter == 'electronic' ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          onSelected: (_) => setState(() => _methodFilter = 'electronic'),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text('الحالة: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ChoiceChip(
-                          label: const Text('الكل'),
-                          selected: _statusFilter == 'all',
-                          onSelected: (_) => setState(() => _statusFilter = 'all'),
-                        ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('نشطة'),
-                          selected: _statusFilter == 'active',
-                          onSelected: (_) => setState(() => _statusFilter = 'active'),
-                        ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('ملغاة'),
-                          selected: _statusFilter == 'void',
-                          selectedColor: Colors.red,
-                          labelStyle: TextStyle(
-                            color: _statusFilter == 'void' ? Colors.white : Colors.black87,
-                          ),
-                          onSelected: (_) => setState(() => _statusFilter = 'void'),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -139,10 +148,15 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: FloatingActionButton(
+          heroTag: null,
           onPressed: () => _openNewPaymentDialog(context),
-          icon: const Icon(Icons.add),
-          label: const Text('تسجيل دفعة'),
+          backgroundColor: AppTheme.burntSienna,
+          foregroundColor: Colors.white,
+          elevation: 5,
+          shape: const CircleBorder(),
+          tooltip: 'تسجيل دفعة',
+          child: const Icon(Icons.add, size: 28),
         ),
       ),
     );

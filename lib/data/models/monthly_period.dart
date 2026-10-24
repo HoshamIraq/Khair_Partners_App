@@ -5,6 +5,10 @@ class MonthlyPeriod {
   final String? notes;
   final String createdAt;
   final String updatedAt;
+  final bool isLocked;
+  final int? disbursedAmountIqd;
+  final String? disbursedAt;
+  final String? disbursementNotes;
 
   const MonthlyPeriod({
     required this.id,
@@ -13,6 +17,10 @@ class MonthlyPeriod {
     this.notes,
     required this.createdAt,
     required this.updatedAt,
+    this.isLocked = false,
+    this.disbursedAmountIqd,
+    this.disbursedAt,
+    this.disbursementNotes,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +31,10 @@ class MonthlyPeriod {
       'notes': notes,
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'is_locked': isLocked ? 1 : 0,
+      'disbursed_amount_iqd': disbursedAmountIqd,
+      'disbursed_at': disbursedAt,
+      'disbursement_notes': disbursementNotes,
     };
   }
 
@@ -34,6 +46,10 @@ class MonthlyPeriod {
       notes: map['notes'] as String?,
       createdAt: map['created_at'] as String,
       updatedAt: map['updated_at'] as String,
+      isLocked: (map['is_locked'] as num?)?.toInt() == 1,
+      disbursedAmountIqd: (map['disbursed_amount_iqd'] as num?)?.toInt(),
+      disbursedAt: map['disbursed_at'] as String?,
+      disbursementNotes: map['disbursement_notes'] as String?,
     );
   }
 
@@ -44,6 +60,10 @@ class MonthlyPeriod {
     String? notes,
     String? createdAt,
     String? updatedAt,
+    bool? isLocked,
+    int? disbursedAmountIqd,
+    String? disbursedAt,
+    String? disbursementNotes,
   }) {
     return MonthlyPeriod(
       id: id ?? this.id,
@@ -52,6 +72,10 @@ class MonthlyPeriod {
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isLocked: isLocked ?? this.isLocked,
+      disbursedAmountIqd: disbursedAmountIqd ?? this.disbursedAmountIqd,
+      disbursedAt: disbursedAt ?? this.disbursedAt,
+      disbursementNotes: disbursementNotes ?? this.disbursementNotes,
     );
   }
 
@@ -74,7 +98,7 @@ class MonthlyPeriod {
       'كانون الأول',
     ];
     if (month >= 1 && month <= 12) {
-      return '${months[month - 1]} $year';
+      return '$month - ${months[month - 1]} $year';
     }
     return yearMonth;
   }
